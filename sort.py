@@ -68,6 +68,3 @@ if __name__ == '__main__':
 
     print('\nList of known extensions:')
     print(sorted(known_extensions))
-
-    print('\nList of unknown extensions:')
-    print(sorted(unknown_extensions))
