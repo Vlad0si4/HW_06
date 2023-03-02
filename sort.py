@@ -1,34 +1,73 @@
-from pathlib import Path
 import shutil
+from pathlib import Path
+import zipfile
 
-category = {"Images": ['.jpg', '.jpeg', '.png', '.svg'],
-            "Documents": ['.doc', '.docx', 'txt', '.pdf', '.xlsx', '.pptx'],
-            "Archives": [".iso", ".tar", ".gz", ".7z", ".dmg", ".rar", ".zip"],
-            "Audio": [".aac", ".m4a", ".mp3", "ogg", ".raw", ".wav", ".wma"],
-            "Video": [".avi", ".mov", ".mp4", ".mkv"],
-            "PDF": [".pdf"],
-            "Unknown": []}  
+categories = {
+    'Images': ['.jpg', '.jpeg', '.png', '.svg'],
+    'Documents': ['.doc', '.docx', '.txt', '.pdf', '.xlsx', '.pptx'],
+    'Archives': ['.iso', '.tar', '.gz', '.7z', '.dmg', '.rar', '.zip'],
+    'Audio': ['.aac', '.m4a', '.mp3', '.ogg', '.raw', '.wav', '.wma'],
+    'Video': ['.avi', '.mov', '.mp4', '.mkv'],
+    'PDF': ['.pdf'],
+    'Unknown': []
+}
 
-folder = Path(input("Enter the path to the folder: "))  
+known_extensions = set()
+unknown_extensions = set()
 
-print(f"Sorting files in {folder}...")
 
-for file in folder.iterdir():
-    if file.is_file():
-        file_extension = file.suffix.lower()
-        category_found = False
-        for category_name, category_extensions in category.items():
-            if file_extension in category_extensions:
-                category_folder = folder / category_name
-                category_folder.mkdir(exist_ok=True)
-                shutil.move(str(file.absolute()), str(category_folder / file.name))
-                print(f"Moved file {file.name} to {category_name} folder.")
-                category_found = True
-                break
-        if not category_found:
-            unknown_folder = folder / "Unknown"
-            unknown_folder.mkdir(exist_ok=True)
-            shutil.move(str(file.absolute()), str(unknown_folder / file.name))
-            print(f"Moved file {file.name} to Unknown folder.")
-            
-print("File sorting complete.")
+def extract_archive(file_path, extract_dir):
+  
+    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+        zip_ref.extractall(extract_dir)
+    print(f'Extracted files from {file_path} to {extract_dir}.')
+
+
+def sort_files(folder):
+
+    path = Path(folder)
+    for file_path in path.glob('*'):
+        if file_path.is_file():
+            extension = file_path.suffix.lower()
+            found_category = False
+            for category, extensions in categories.items():
+                if extension in extensions:
+                    found_category = True
+                    category_folder = path / category
+                    if not category_folder.exists():
+                        category_folder.mkdir()
+                    shutil.move(str(file_path), str(category_folder / file_path.name))
+                    print(f'Moved file {file_path.name} to {category} folder.')
+                    known_extensions.add(extension)
+                    break
+            if not found_category:
+                unknown_extensions.add(extension)
+                unknown_folder = path / 'Unknown'
+                if not unknown_folder.exists():
+                    unknown_folder.mkdir()
+                shutil.move(str(file_path), str(unknown_folder / file_path.name))
+                print(f'Moved file {file_path.name} to Unknown folder.')
+        elif file_path.is_dir():
+            sort_files(str(file_path))
+
+
+if __name__ == '__main__':
+    folder_path = input('Enter folder path: ')
+    if not Path(folder_path).exists():
+        print(f"Error: the path '{folder_path}' is invalid or does not exist.")
+        exit(1)
+
+    print(f'Sorting files in {folder_path}...')
+    sort_files(folder_path)
+
+    print('\nList of files in each category:')
+    for category in categories.keys():
+        category_folder = Path(folder_path) / category
+        print(f'{category} ({len(list(category_folder.glob("*")))}):')
+        print([f.name for f in category_folder.glob("*")])
+
+    print('\nList of known extensions:')
+    print(sorted(known_extensions))
+
+    print('\nList of unknown extensions:')
+    print(sorted(unknown_extensions))
